@@ -124,10 +124,10 @@ async def handle_field_input(message: types.Message, state: FSMContext):
         elif field == "specialization" and len(value) > 15:
             await message.answer(T["errors"]["specialization"])
             return
-        elif field == "help" and len(value) > 70:
+        elif field == "help" and len(value) > 100:
             await message.answer(T["errors"]["help"])
             return
-        elif field == "message" and len(value) > 60:
+        elif field == "message" and len(value) > 200:
             await message.answer(T["errors"]["message"])
             return
 

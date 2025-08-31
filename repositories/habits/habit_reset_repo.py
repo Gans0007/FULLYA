@@ -23,7 +23,7 @@ async def reset_unconfirmed_habits(user_id: int):
     habits = await database.fetch_all("""
         SELECT id, name FROM habits
         WHERE user_id = :user_id
-          AND confirm_type != 'wake_time'
+#         AND confirm_type != 'wake_time'
           AND is_active = TRUE
           AND is_challenge = FALSE
     """, {"user_id": user_id})
