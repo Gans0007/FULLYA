@@ -471,7 +471,7 @@ MEMBERS_TEXTS = {
 NOTIFICATION_TONES = {
     "soft": {"ru": "🧘 Мягкие", "uk": "🧘 М’які", "en": "🧘 Soft"},
     "hard": {"ru": "🥊 Жёсткие", "uk": "🥊 Жорсткі", "en": "🥊 Hard"},
-    "mixed": {"ru": "😈 Гоггинс", "uk": "😈 Гоггінс", "en": "😈 Goggins"},
+    "mixed": {"ru": "😈 Очень", "uk": "😈 Дуже", "en": "😈 Very"},
 }
 
 ABOUT_OPTIONS_TEXTS = {
@@ -484,7 +484,7 @@ ABOUT_OPTIONS_TEXTS = {
         # Кнопки тонов
         "btn_tone_soft": "🧘 Мягкие",
         "btn_tone_hard": "🥊 Жёсткие",
-        "btn_tone_mixed": "😈 Гоггинс",
+        "btn_tone_mixed": "😈 Очень",
 
         # Кнопки языков
         "btn_lang_uk": "🇺🇦 Українська",
@@ -520,7 +520,7 @@ ABOUT_OPTIONS_TEXTS = {
 
         "btn_tone_soft": "🧘 М’які",
         "btn_tone_hard": "🥊 Жорсткі",
-        "btn_tone_mixed": "😈 Гоггінс",
+        "btn_tone_mixed": "😈 Дуже",
 
         "btn_lang_uk": "🇺🇦 Українська",
         "btn_lang_en": "🇬🇧 English",
@@ -552,7 +552,7 @@ ABOUT_OPTIONS_TEXTS = {
 
         "btn_tone_soft": "🧘 Soft",
         "btn_tone_hard": "🥊 Hard",
-        "btn_tone_mixed": "😈 Goggins",
+        "btn_tone_mixed": "😈 Very",
 
         "btn_lang_uk": "🇺🇦 Українська",
         "btn_lang_en": "🇬🇧 English",

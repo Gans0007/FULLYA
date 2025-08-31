@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 from repositories.profiles.profile_repository import get_user
@@ -8,6 +8,10 @@ from db.db import database  # чтобы взять язык
 
 SUBSCRIPTION_DAYS = 30
 TRIBUTE_PAYMENT_LINK = "https://t.me/tribute/app?startapp=ssdz"
+
+from datetime import datetime, timedelta, timezone
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardButton
 
 async def has_active_subscription(user_id: int, message):
     # Если админ – всегда True
@@ -23,8 +27,15 @@ async def has_active_subscription(user_id: int, message):
     payment_date = data.get("payment_date")
 
     if is_paid and payment_date:
+        # нормализуем дату из БД
+        if payment_date.tzinfo is None:
+            payment_date = payment_date.replace(tzinfo=timezone.utc)
+        else:
+            payment_date = payment_date.astimezone(timezone.utc)
+
+        now = datetime.now(timezone.utc)
         expire_date = payment_date + timedelta(days=SUBSCRIPTION_DAYS)
-        if datetime.utcnow() < expire_date:
+        if now < expire_date:
             return True
 
     # Получаем язык пользователя (fallback ru)
@@ -48,3 +59,4 @@ async def has_active_subscription(user_id: int, message):
         reply_markup=kb.as_markup()
     )
     return False
+

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from aiogram import F
 
 from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
@@ -108,9 +108,17 @@ async def start_cmd(message: types.Message, bot: Bot, state: FSMContext):
         user_data = dict(user)
         is_paid = user_data.get("is_paid", False)
         payment_date = user_data.get("payment_date")
+
         if is_paid and payment_date:
+            # нормализуем дату из БД к UTC-aware
+            if payment_date.tzinfo is None:
+                payment_date = payment_date.replace(tzinfo=timezone.utc)
+            else:
+                payment_date = payment_date.astimezone(timezone.utc)
+
+            now = datetime.now(timezone.utc)
             expire_date = payment_date + timedelta(days=SUBSCRIPTION_DAYS)
-            if datetime.utcnow() < expire_date:
+            if now < expire_date:
                 has_access = True
 
     # Если доступа нет – только кнопка оплаты
@@ -190,8 +198,15 @@ async def handle_check_subscription(callback: types.CallbackQuery, bot: Bot, sta
         is_paid = user_data.get("is_paid", False)
         payment_date = user_data.get("payment_date")
         if is_paid and payment_date:
+            # нормализуем дату из БД
+            if payment_date.tzinfo is None:
+                payment_date = payment_date.replace(tzinfo=timezone.utc)
+            else:
+                payment_date = payment_date.astimezone(timezone.utc)
+
+            now = datetime.now(timezone.utc)
             expire_date = payment_date + timedelta(days=SUBSCRIPTION_DAYS)
-            if datetime.utcnow() < expire_date:
+            if now < expire_date:
                 has_access = True
 
     if has_access:

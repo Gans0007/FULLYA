@@ -62,12 +62,11 @@ async def save_referral(referrer_id: int, invited_id: int, bot: Bot):
 
     query = """
         INSERT INTO referrals (referrer_id, invited_id, created_at)
-        VALUES (:referrer_id, :invited_id, :created_at)
+        VALUES (:referrer_id, :invited_id, NOW())
     """
     values = {
         "referrer_id": referrer_id,
         "invited_id": invited_id,
-        "created_at": get_current_time()
     }
     await database.execute(query=query, values=values)
 

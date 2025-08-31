@@ -1,12 +1,13 @@
 import asyncio
 import random
 import logging
-from datetime import timedelta, datetime
+from datetime import timedelta
 from aiogram import Bot
-from utils.timezones import get_current_time
+from utils.timezones import get_current_time, KYIV_TZ  # добавь импорт
 from repositories.habits.habit_repo import get_unconfirmed_today
 from repositories.users.user_repo import get_all_user_ids
 from db.db import database
+
 
 # ✅ импорт мультиязычных текстов
 from handlers.texts.notifications_texts import REMINDER_MESSAGES, GOAL_REMINDERS, DREAM_REMINDERS
@@ -94,11 +95,13 @@ async def send_delayed_reminder(bot: Bot, user_id: int, habit, delay: float):
         logger.exception(f"[REMINDER] Ошибка при отправке пользователю {user_id}: {e}")
 
 
-# === 2. Цели и мечты ===
+
 async def scheduled_goal_dream_reminders(bot: Bot):
     while True:
         try:
-            now = datetime.utcnow()
+            # как везде в проекте — Europe/Kyiv aware
+            now = get_current_time()
+
             users = await safe_fetch_all("""
                 SELECT user_id, language, goals_reminder_at, dreams_reminder_at
                 FROM users
@@ -108,8 +111,17 @@ async def scheduled_goal_dream_reminders(bot: Bot):
                 uid = user["user_id"]
                 lang = user["language"] if user["language"] in GOAL_REMINDERS else "ru"
 
+                # нормализуем даты из БД в Kyiv TZ
+                goals_at = user["goals_reminder_at"]
+                if goals_at and goals_at.tzinfo is None:
+                    goals_at = goals_at.replace(tzinfo=KYIV_TZ)
+
+                dreams_at = user["dreams_reminder_at"]
+                if dreams_at and dreams_at.tzinfo is None:
+                    dreams_at = dreams_at.replace(tzinfo=KYIV_TZ)
+
                 # === ЦЕЛИ ===
-                if not user["goals_reminder_at"] or user["goals_reminder_at"] <= now:
+                if not goals_at or goals_at <= now:
                     goal = await database.fetch_one("""
                         SELECT id, text FROM goals
                         WHERE user_id = :uid AND is_done = false
@@ -127,7 +139,7 @@ async def scheduled_goal_dream_reminders(bot: Bot):
                             logger.warning(f"[REMINDER] Ошибка при отправке цели: {e}")
 
                 # === МЕЧТЫ ===
-                if not user["dreams_reminder_at"] or user["dreams_reminder_at"] <= now:
+                if not dreams_at or dreams_at <= now:
                     dream = await database.fetch_one("""
                         SELECT id, text FROM dreams
                         WHERE user_id = :uid AND is_done = false

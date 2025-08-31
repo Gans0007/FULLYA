@@ -16,7 +16,7 @@ async def init_postgres_db():
             xp_balance INTEGER DEFAULT 0,
             usdt_balance REAL DEFAULT 0,
             withdrawn REAL DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
             created_habits INTEGER DEFAULT 0,
             special_reward BOOLEAN DEFAULT FALSE,
             finished_habits INTEGER DEFAULT 0,
@@ -28,6 +28,8 @@ async def init_postgres_db():
             active_referrals INTEGER DEFAULT 0,
             notification_tone TEXT DEFAULT 'mixed',
             language VARCHAR(5) DEFAULT 'ru'
+            goals_reminder_at TIMESTAMPTZ,
+            dreams_reminder_at TIMESTAMPTZ
         );
         """)
 
@@ -35,7 +37,7 @@ async def init_postgres_db():
         CREATE TABLE IF NOT EXISTS referrals (
             referrer_id BIGINT,
             invited_id BIGINT PRIMARY KEY,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
             is_active BOOLEAN DEFAULT FALSE,
             FOREIGN KEY (referrer_id) REFERENCES users(user_id) ON DELETE CASCADE,
             FOREIGN KEY (invited_id) REFERENCES users(user_id) ON DELETE CASCADE
@@ -52,7 +54,7 @@ async def init_postgres_db():
             done_days INTEGER DEFAULT 0,
             is_challenge BOOLEAN DEFAULT FALSE,
             confirm_type TEXT DEFAULT 'media',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
             is_active BOOLEAN DEFAULT TRUE,    
             challenge_id TEXT, 
             FOREIGN KEY(user_id) REFERENCES users(user_id) ON DELETE CASCADE
