@@ -27,7 +27,7 @@ async def init_postgres_db():
             last_confirmation_date DATE,
             active_referrals INTEGER DEFAULT 0,
             notification_tone TEXT DEFAULT 'mixed',
-            language VARCHAR(5) DEFAULT 'ru'
+            language VARCHAR(5) DEFAULT 'ru',
             goals_reminder_at TIMESTAMPTZ,
             dreams_reminder_at TIMESTAMPTZ
         );
