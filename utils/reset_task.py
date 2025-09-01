@@ -44,7 +44,6 @@ async def perform_reset(bot: Bot):
                 f"Аннулированы={len(dropped_habits)} {dropped_habits}"
             )
 
-        # Предупреждения
         for habit_name in warn_habits:
             try:
                 await bot.send_message(
@@ -53,9 +52,8 @@ async def perform_reset(bot: Bot):
                     parse_mode="HTML"
                 )
             except Exception as e:
-                logger.error(f"[ОШИБКА][ПРИВЫЧКА] Не удалось отправить предупреждение пользователю={user_id}, привычка={habit_name}, ошибка={e}")
+                logger.error(f"[ОШИБКА][ПРИВЫЧКА] user={user_id}, habit={habit_name}, err={e}")
 
-        # Аннулирования
         for habit_name in dropped_habits:
             try:
                 await bot.send_message(
@@ -64,7 +62,7 @@ async def perform_reset(bot: Bot):
                     parse_mode="HTML"
                 )
             except Exception as e:
-                logger.error(f"[ОШИБКА][ПРИВЫЧКА] Не удалось отправить аннулирование пользователю={user_id}, привычка={habit_name}, ошибка={e}")
+                logger.error(f"[ОШИБКА][ПРИВЫЧКА] user={user_id}, habit={habit_name}, err={e}")
 
         # --- Челленджи ---
         warn_chals, dropped_chals = await reset_unconfirmed_challenges(user_id)
@@ -84,7 +82,7 @@ async def perform_reset(bot: Bot):
                     parse_mode="HTML"
                 )
             except Exception as e:
-                logger.error(f"[ОШИБКА][ЧЕЛЛЕНДЖ] Не удалось отправить предупреждение пользователю={user_id}, челлендж={challenge_name}, ошибка={e}")
+                logger.error(f"[ОШИБКА][ЧЕЛЛЕНДЖ] user={user_id}, chal={challenge_name}, err={e}")
 
         for challenge_name in dropped_chals:
             try:
@@ -94,11 +92,38 @@ async def perform_reset(bot: Bot):
                     parse_mode="HTML"
                 )
             except Exception as e:
-                logger.error(f"[ОШИБКА][ЧЕЛЛЕНДЖ] Не удалось отправить аннулирование пользователю={user_id}, челлендж={challenge_name}, ошибка={e}")
+                logger.error(f"[ОШИБКА][ЧЕЛЛЕНДЖ] user={user_id}, chal={challenge_name}, err={e}")
+
+        # --- Ежедневный отчёт ---
+        total_warn = len(warn_habits) + len(warn_chals)
+        total_drop = len(dropped_habits) + len(dropped_chals)
+
+        if total_warn == 0 and total_drop == 0:
+            summary_text = (
+                "✅ Ночной чек выполнен.\n"
+                "Пропусков нет — держишь темп! 💪"
+            )
+        else:
+            lines = ["🗓 <b>Итоги ночного чека</b>:"]
+            if warn_habits:
+                lines.append("• ⚠️ Предупреждения по привычкам: " + ", ".join(warn_habits))
+            if dropped_habits:
+                lines.append("• ⛔️ Аннулированы привычки: " + ", ".join(dropped_habits))
+            if warn_chals:
+                lines.append("• ⚠️ Предупреждения по челленджам: " + ", ".join(warn_chals))
+            if dropped_chals:
+                lines.append("• ⛔️ Аннулированы челленджи: " + ", ".join(dropped_chals))
+            lines.append(f"\nИтого: предупреждений — {total_warn}, аннулирований — {total_drop}.")
+            summary_text = "\n".join(lines)
+
+        try:
+            await bot.send_message(user_id, summary_text, parse_mode="HTML")
+            logger.info(f"[СБРОС][ОТЧЁТ] user={user_id}, warn={total_warn}, drop={total_drop}")
+        except Exception as e:
+            logger.error(f"[СБРОС][ОТЧЁТ][ОШИБКА] user={user_id}: {e}")
 
     # отметка последнего сброса
     update_last_reset_date(datetime.now(pytz.timezone("Europe/Kyiv")).date().isoformat())
-
 
 
 

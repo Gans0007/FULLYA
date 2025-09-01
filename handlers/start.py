@@ -28,6 +28,8 @@ from handlers.texts.start_texts import (
 from repositories.profiles.profile_repository import save_user, get_user, set_terms_accepted
 from repositories.referrals.referral_repo import save_referral
 
+START_PAY_PHOTO_FILE_ID = "AgACAgIAAxkBAAIXw2i1L6Dg11jl6Z7zjTmpAAH6v1uUrwACv_YxG1eisEll6-rgiUq1CQEAAwIAA3kAAzYE"
+
 router = Router()
 logger = logging.getLogger(__name__)
 
@@ -132,7 +134,7 @@ async def start_cmd(message: types.Message, bot: Bot, state: FSMContext):
         )
         try:
             await message.answer_photo(
-                photo=FSInputFile("media/preview.jpg"),
+                photo=START_PAY_PHOTO_FILE_ID,
                 caption=_t(START_PAY_CAPTION, lang),
                 reply_markup=keyboard.as_markup(),
             )
@@ -171,7 +173,7 @@ async def start_cmd(message: types.Message, bot: Bot, state: FSMContext):
         text=_t(START_VIDEO_INSTRUCTION_TEXT, lang),
         parse_mode="HTML",
     )
-    await message.answer_photo(photo=FSInputFile("media/if.jpg"))
+    await message.answer_photo(photo=START_PAY_PHOTO_FILE_ID)
 
 
 @router.callback_query(lambda c: c.data == "check_subs")
@@ -240,7 +242,7 @@ async def handle_check_subscription(callback: types.CallbackQuery, bot: Bot, sta
             text=_t(START_VIDEO_INSTRUCTION_TEXT, lang),
             parse_mode="HTML",
         )
-        await callback.message.answer_photo(photo=FSInputFile("media/if.jpg"))
+        await callback.message.answer_photo(photo=START_PAY_PHOTO_FILE_ID)
         return
 
     # Если доступа нет – предлагаем оплату
@@ -290,7 +292,7 @@ async def handle_accept_terms(callback: types.CallbackQuery, bot: Bot, state: FS
         parse_mode="HTML",
     )
 
-    await callback.message.answer_photo(photo=FSInputFile("media/if.jpg"))
+    await callback.message.answer_photo(photo=START_PAY_PHOTO_FILE_ID)
 
     try:
         await callback.answer("✅ Принято", show_alert=False)
