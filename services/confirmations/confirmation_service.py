@@ -16,6 +16,7 @@ from repositories.confirmations.confirmation_repo import (
     update_confirmation_file,
 )
 
+
 async def process_confirmation(
     user_id: int,
     habit_id: int,
@@ -71,16 +72,16 @@ async def send_to_public_chat(
     total = progress["days"]
 
     caption = get_random_caption(user, name, done, total)
-    caption_text = None  # ← поставь сюда caption, если захочешь вернуть текст
 
     if file_type == "photo":
-        await bot.send_photo(chat_id=PUBLIC_CHAT_ID, photo=file_id, caption=caption_text, parse_mode="HTML")
-
+        await bot.send_photo(chat_id=PUBLIC_CHAT_ID, photo=file_id, caption=caption, parse_mode="HTML")
     elif file_type == "video":
-        await bot.send_video(chat_id=PUBLIC_CHAT_ID, video=file_id, caption=caption_text, parse_mode="HTML")
-
+        await bot.send_video(chat_id=PUBLIC_CHAT_ID, video=file_id, caption=caption, parse_mode="HTML")
     elif file_type == "video_note":
         await bot.send_video_note(chat_id=PUBLIC_CHAT_ID, video_note=file_id)
+        await bot.send_message(chat_id=PUBLIC_CHAT_ID, text=caption, parse_mode="HTML")
+
+
         # если захочешь подпись для кружка — Telegram не поддерживает caption для video_note,
         # поэтому отправляем отдельным сообщением (закомментировано по умолчанию):
         # if caption_text:

@@ -37,6 +37,7 @@ async def perform_reset(bot: Bot):
         # --- Привычки ---
         warn_habits, dropped_habits = await reset_unconfirmed_habits(user_id)
 
+
         if warn_habits or dropped_habits:
             logger.info(
                 f"[СБРОС][ПРИВЫЧКИ] Пользователь={user_id}, "
@@ -55,6 +56,7 @@ async def perform_reset(bot: Bot):
                 logger.error(f"[ОШИБКА][ПРИВЫЧКА] user={user_id}, habit={habit_name}, err={e}")
 
         for habit_name in dropped_habits:
+            logger.info(f"[DEBUG][SEND_HABIT_RESET] user={user_id}, habit={habit_name}")
             try:
                 await bot.send_message(
                     user_id,

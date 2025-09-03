@@ -3,7 +3,7 @@ from repositories.habits.habit_repo import get_habit_by_id
 from services.confirmations.confirmation_service import process_confirmation, send_to_public_chat
 from services.challenge_service.complete_challenge import complete_challenge
 from services.profile import xp_service
-from handlers.texts.notifications_texts import CONFIRM_MESSAGES, SPECIAL_REWARD_MESSAGE
+from handlers.texts.notifications_texts import CONFIRM_MESSAGES, SPECIAL_REWARD_MESSAGE, CONFIRMATION_CAPTIONS
 from db.db import database
 
 
@@ -47,8 +47,9 @@ async def confirm_media_habit(user, habit_id: int, file_id: str, file_type: str,
             habit_id=habit_id,
             file_id=file_id,
             file_type=file_type,
-            bot=bot
+            bot=bot,
         )
+
 
     if progress_increased:
         # +1 XP
