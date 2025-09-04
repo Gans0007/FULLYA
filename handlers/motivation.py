@@ -16,6 +16,7 @@ MOTIVATION_CONTENT = [
     ("post", 578),
     ("post", 576),
     ("post", 570),
+    ("post", 602),
 ]
 
 @router.message(lambda msg: msg.text in [t["motivation"] for t in MAIN_MENU_TEXTS.values()])

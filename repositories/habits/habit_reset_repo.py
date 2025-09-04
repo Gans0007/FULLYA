@@ -4,102 +4,84 @@ from db.db import database
 
 TZ = pytz.timezone("Europe/Kyiv")
 
-async def _yesterday_dates():
-    now = datetime.now(TZ)
-    y = (now - timedelta(days=1)).date()          # вчера (календарная дата Киева)
-    dby = (now - timedelta(days=2)).date()        # позавчера
-    return y, dby
+async def _collect_items(user_id: int, is_challenge: bool):
+    # Активные привычки/челленджи (включая wake_time)
+    return await database.fetch_all("""
+        SELECT id, name
+        FROM habits
+        WHERE user_id = :user_id
+          AND is_active = TRUE
+          AND is_challenge = :is_challenge
+    """, {"user_id": user_id, "is_challenge": is_challenge})
+
+
+async def _fetch_confirmed_set(user_id: int, habit_ids: list[int], target_date):
+    """
+    Возвращает set(habit_id), у которых есть подтверждение в target_date.
+    Сравнение по Киеву: DATE(datetime AT TIME ZONE 'Europe/Kyiv')
+    """
+    if not habit_ids:
+        return set()
+
+    rows = await database.fetch_all("""
+        SELECT DISTINCT habit_id
+        FROM confirmations
+        WHERE user_id = :user_id
+          AND habit_id = ANY(:habit_ids)
+          AND DATE(datetime AT TIME ZONE 'Europe/Kyiv') = :day_date
+    """, {"user_id": user_id, "habit_ids": habit_ids, "day_date": target_date})
+    # databases возвращает маппинги -> обращаемся по строковому ключу
+    return {row["habit_id"] for row in rows}
+
+async def _process_block(user_id: int, is_challenge: bool):
+    """
+    Логика:
+      - Если ВЧЕРА подтверждения НЕТ и ПОЗАВЧЕРА ТОЖЕ НЕТ → обнулить (dropped)
+      - Если ВЧЕРА НЕТ, а ПОЗАВЧЕРА БЫЛО → только предупредить (first_miss)
+      - Если ВЧЕРА БЫЛО → ничего не делаем
+    """
+    today = datetime.now(KYIV_TZ).date()
+    yesterday = today - timedelta(days=1)
+    day_before = today - timedelta(days=2)
+
+    items = await _collect_items(user_id, is_challenge)
+    if not items:
+        return [], []
+
+    habit_ids = [it["id"] for it in items]
+
+    # ДВА батч-запроса вместо N
+    confirmed_yesterday = await _fetch_confirmed_set(user_id, habit_ids, yesterday)
+    confirmed_day_before = await _fetch_confirmed_set(user_id, habit_ids, day_before)
+
+    first_miss, dropped = [], []
+
+    for it in items:
+        hid = it["id"]
+        name = it["name"]
+
+        if hid in confirmed_yesterday:
+            continue  # вчера подтверждено — всё ок
+
+        # вчера НЕ подтверждено
+        if hid in confirmed_day_before:
+            # первый пропуск
+            first_miss.append(name)
+        else:
+            # второй подряд пропуск — аннулируем прогресс
+            await database.execute("""
+                UPDATE habits
+                SET done_days = 0
+                WHERE id = :habit_id
+            """, {"habit_id": hid})
+            dropped.append(name)
+
+    return first_miss, dropped
 
 async def reset_unconfirmed_habits(user_id: int):
-    """
-    Возвращает кортеж списков: (warn_list, dropped_list)
-    - warn_list: привычки с 1-м подряд пропуском (только предупреждение)
-    - dropped_list: привычки со 2-м подряд пропуском (аннулирование + сброс done_days)
-    """
-    yesterday, day_before_yesterday = await _yesterday_dates()
-    warn, dropped = [], []
-
-    # Берём активные не-челлендж привычки
-    habits = await database.fetch_all("""
-        SELECT id, name FROM habits
-        WHERE user_id = :user_id
-#         AND confirm_type != 'wake_time'
-          AND is_active = TRUE
-          AND is_challenge = FALSE
-    """, {"user_id": user_id})
-
-    for habit in habits:
-        # Было ли подтверждение вчера?
-        confirmed_y = await database.fetch_one("""
-            SELECT 1 FROM confirmations
-            WHERE user_id = :user_id
-              AND habit_id = :habit_id
-              AND DATE(datetime AT TIME ZONE 'Europe/Kyiv') = :yesterday
-        """, {"user_id": user_id, "habit_id": habit.id, "yesterday": yesterday})
-
-        if confirmed_y is not None:
-            # Вчера подтверждал — всё ок
-            continue
-
-        # Не подтвердил вчера -> проверяем позавчера
-        confirmed_dby = await database.fetch_one("""
-            SELECT 1 FROM confirmations
-            WHERE user_id = :user_id
-              AND habit_id = :habit_id
-              AND DATE(datetime AT TIME ZONE 'Europe/Kyiv') = :dby
-        """, {"user_id": user_id, "habit_id": habit.id, "dby": day_before_yesterday})
-
-        if confirmed_dby is None:
-            # Позавчера тоже нет — 2-й подряд пропуск => аннулирование
-            await database.execute("""
-                UPDATE habits SET done_days = 0 WHERE id = :habit_id
-            """, {"habit_id": habit.id})
-            dropped.append(habit.name)
-        else:
-            # Вчера — первый пропуск => только предупреждение
-            warn.append(habit.name)
-
-    return warn, dropped
-
+    """Возвращает (first_miss_habits, dropped_habits)"""
+    return await _process_block(user_id, is_challenge=False)
 
 async def reset_unconfirmed_challenges(user_id: int):
-    """
-    Аналогично привычкам: (warn_list, dropped_list) для челленджей.
-    """
-    yesterday, day_before_yesterday = await _yesterday_dates()
-    warn, dropped = [], []
-
-    challenges = await database.fetch_all("""
-        SELECT id, name FROM habits
-        WHERE user_id = :user_id
-          AND is_active = TRUE
-          AND is_challenge = TRUE
-    """, {"user_id": user_id})
-
-    for challenge in challenges:
-        confirmed_y = await database.fetch_one("""
-            SELECT 1 FROM confirmations
-            WHERE user_id = :user_id
-              AND habit_id = :habit_id
-              AND DATE(datetime AT TIME ZONE 'Europe/Kyiv') = :yesterday
-        """, {"user_id": user_id, "habit_id": challenge.id, "yesterday": yesterday})
-
-        if confirmed_y is not None:
-            continue
-
-        confirmed_dby = await database.fetch_one("""
-            SELECT 1 FROM confirmations
-            WHERE user_id = :user_id
-              AND habit_id = :habit_id
-              AND DATE(datetime AT TIME ZONE 'Europe/Kyiv') = :dby
-        """, {"user_id": user_id, "habit_id": challenge.id, "dby": day_before_yesterday})
-
-        if confirmed_dby is None:
-            await database.execute("""
-                UPDATE habits SET done_days = 0 WHERE id = :habit_id
-            """, {"habit_id": challenge.id})
-            dropped.append(challenge.name)
-        else:
-            warn.append(challenge.name)
-
-    return warn, dropped
+    """Возвращает (first_miss_challenges, dropped_challenges)"""
+    return await _process_block(user_id, is_challenge=True)

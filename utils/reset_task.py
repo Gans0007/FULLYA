@@ -24,108 +24,108 @@ def update_last_reset_date(date_str):
     RESET_FILE_PATH.write_text(date_str)
 
 async def perform_reset(bot: Bot):
+    """
+    Ежедневный запуск около 00:00 Europe/Kyiv.
+    Правила:
+      - Первый пропуск (вчера) → предупреждение (НЕ аннулируем)
+      - Второй подряд пропуск → аннулирование + уведомление
+      - Если пропусков нет вообще → позитивный отчёт «всё подтверждено»
+    """
     user_ids = await get_all_users_with_active_habits()
+    logging.info("[RESET] старт ночного прохода: пользователей=%d", len(user_ids))
+
+    total_first_all = 0
+    total_drop_all = 0
+    total_all_clear = 0
+
+    def _fmt(names):
+        # Аккуратно формируем список названий для сообщения/логов
+        # (чтобы не раздувать логи, ограничим до 10 пунктов)
+        if not names:
+            return ""
+        names = list(names)
+        if len(names) > 10:
+            shown = ", ".join(f"«{n}»" for n in names[:10])
+            return f"{shown} и ещё {len(names) - 10}…"
+        return ", ".join(f"«{n}»" for n in names)
 
     for user_id in user_ids:
-        # стиль уведомлений пользователя
-        user_row = await database.fetch_one(
-            "SELECT notification_tone FROM users WHERE user_id = :uid",
-            {"uid": user_id}
-        )
-        tone = user_row["notification_tone"] if user_row and user_row["notification_tone"] else "mixed"
-
-        # --- Привычки ---
-        warn_habits, dropped_habits = await reset_unconfirmed_habits(user_id)
-
-
-        if warn_habits or dropped_habits:
-            logger.info(
-                f"[СБРОС][ПРИВЫЧКИ] Пользователь={user_id}, "
-                f"Предупреждения={len(warn_habits)} {warn_habits}, "
-                f"Аннулированы={len(dropped_habits)} {dropped_habits}"
-            )
-
-        for habit_name in warn_habits:
-            try:
-                await bot.send_message(
-                    user_id,
-                    HABIT_MISS_WARN_MESSAGES[tone].format(habit_name=habit_name),
-                    parse_mode="HTML"
-                )
-            except Exception as e:
-                logger.error(f"[ОШИБКА][ПРИВЫЧКА] user={user_id}, habit={habit_name}, err={e}")
-
-        for habit_name in dropped_habits:
-            logger.info(f"[DEBUG][SEND_HABIT_RESET] user={user_id}, habit={habit_name}")
-            try:
-                await bot.send_message(
-                    user_id,
-                    HABIT_RESET_MESSAGES[tone].format(habit_name=habit_name),
-                    parse_mode="HTML"
-                )
-            except Exception as e:
-                logger.error(f"[ОШИБКА][ПРИВЫЧКА] user={user_id}, habit={habit_name}, err={e}")
-
-        # --- Челленджи ---
-        warn_chals, dropped_chals = await reset_unconfirmed_challenges(user_id)
-
-        if warn_chals or dropped_chals:
-            logger.info(
-                f"[СБРОС][ЧЕЛЛЕНДЖИ] Пользователь={user_id}, "
-                f"Предупреждения={len(warn_chals)} {warn_chals}, "
-                f"Аннулированы={len(dropped_chals)} {dropped_chals}"
-            )
-
-        for challenge_name in warn_chals:
-            try:
-                await bot.send_message(
-                    user_id,
-                    CHALLENGE_MISS_WARN_MESSAGES[tone].format(challenge_name=challenge_name),
-                    parse_mode="HTML"
-                )
-            except Exception as e:
-                logger.error(f"[ОШИБКА][ЧЕЛЛЕНДЖ] user={user_id}, chal={challenge_name}, err={e}")
-
-        for challenge_name in dropped_chals:
-            try:
-                await bot.send_message(
-                    user_id,
-                    CHALLENGE_RESET_MESSAGES[tone].format(challenge_name=challenge_name),
-                    parse_mode="HTML"
-                )
-            except Exception as e:
-                logger.error(f"[ОШИБКА][ЧЕЛЛЕНДЖ] user={user_id}, chal={challenge_name}, err={e}")
-
-        # --- Ежедневный отчёт ---
-        total_warn = len(warn_habits) + len(warn_chals)
-        total_drop = len(dropped_habits) + len(dropped_chals)
-
-        if total_warn == 0 and total_drop == 0:
-            summary_text = (
-                "✅ Ночной чек выполнен.\n"
-                "Пропусков нет — держишь темп! 💪"
-            )
-        else:
-            lines = ["🗓 <b>Итоги ночного чека</b>:"]
-            if warn_habits:
-                lines.append("• ⚠️ Предупреждения по привычкам: " + ", ".join(warn_habits))
-            if dropped_habits:
-                lines.append("• ⛔️ Аннулированы привычки: " + ", ".join(dropped_habits))
-            if warn_chals:
-                lines.append("• ⚠️ Предупреждения по челленджам: " + ", ".join(warn_chals))
-            if dropped_chals:
-                lines.append("• ⛔️ Аннулированы челленджи: " + ", ".join(dropped_chals))
-            lines.append(f"\nИтого: предупреждений — {total_warn}, аннулирований — {total_drop}.")
-            summary_text = "\n".join(lines)
-
         try:
-            await bot.send_message(user_id, summary_text, parse_mode="HTML")
-            logger.info(f"[СБРОС][ОТЧЁТ] user={user_id}, warn={total_warn}, drop={total_drop}")
-        except Exception as e:
-            logger.error(f"[СБРОС][ОТЧЁТ][ОШИБКА] user={user_id}: {e}")
+            # Привычки
+            fm_habits, dr_habits = await reset_unconfirmed_habits(user_id)
+            # Челленджи
+            fm_chals,  dr_chals  = await reset_unconfirmed_challenges(user_id)
 
-    # отметка последнего сброса
-    update_last_reset_date(datetime.now(pytz.timezone("Europe/Kyiv")).date().isoformat())
+            total_first = len(fm_habits) + len(fm_chals)
+            total_drop  = len(dr_habits) + len(dr_chals)
+            total_first_all += total_first
+            total_drop_all  += total_drop
+
+            logging.info(
+                "[RESET] user_id=%s first_miss=%d dropped=%d | fm_habits=[%s] fm_chals=[%s] dr_habits=[%s] dr_chals=[%s]",
+                user_id,
+                total_first, total_drop,
+                _fmt(fm_habits), _fmt(fm_chals),
+                _fmt(dr_habits), _fmt(dr_chals),
+            )
+
+            # 1) Мягкое предупреждение — первый пропуск (НЕ аннулируем)
+            if fm_habits or fm_chals:
+                parts = []
+                if fm_habits:
+                    parts.append("• Привычки: " + _fmt(fm_habits))
+                if fm_chals:
+                    parts.append("• Челленджи: " + _fmt(fm_chals))
+
+                text = (
+                    "⚠️ Ты не подтвердил вчера.\n"
+                    "Первый пропуск не аннулирует прогресс — всякое бывает.\n"
+                    "Но сегодня нужно подтвердить, чтобы не потерять стрик завтра!\n\n"
+                    + "\n".join(parts)
+                )
+                try:
+                    await bot.send_message(user_id, text)
+                except Exception as e:
+                    logging.warning("[RESET] send first_miss failed user_id=%s: %r", user_id, e)
+
+            # 2) Жёсткое уведомление — второй подряд пропуск (прогресс уже обнулён)
+            if dr_habits or dr_chals:
+                parts = []
+                if dr_habits:
+                    parts.append("• Привычки: " + _fmt(dr_habits))
+                if dr_chals:
+                    parts.append("• Челленджи: " + _fmt(dr_chals))
+
+                text = (
+                    "❌ Два дня без подтверждения — прогресс аннулирован.\n"
+                    "Начинай заново и держи ритм. Ты справишься.\n\n"
+                    + "\n".join(parts)
+                )
+                try:
+                    await bot.send_message(user_id, text)
+                except Exception as e:
+                    logging.warning("[RESET] send dropped failed user_id=%s: %r", user_id, e)
+
+            # 3) Позитивный отчёт — всё подтверждено (ни пропусков, ни аннулирований)
+            if not (fm_habits or dr_habits or fm_chals or dr_chals):
+                total_all_clear += 1
+                ok_text = (
+                    "✅ Все привычки и челленджи были подтверждены вчера.\n"
+                    "Дисциплина на месте — держим темп! 💪🔥"
+                )
+                try:
+                    await bot.send_message(user_id, ok_text)
+                except Exception as e:
+                    logging.warning("[RESET] send all_clear failed user_id=%s: %r", user_id, e)
+
+        except Exception as e:
+            # Ловим любые неожиданности по конкретному юзеру, чтобы не уронить весь ночной проход
+            logging.exception("[RESET] ошибка обработки user_id=%s: %r", user_id, e)
+
+    logging.info(
+        "[RESET] финал ночного прохода: всего_first_miss=%d, всего_dropped=%d, all_clear=%d, пользователей=%d",
+        total_first_all, total_drop_all, total_all_clear, len(user_ids)
+    )
 
 
 

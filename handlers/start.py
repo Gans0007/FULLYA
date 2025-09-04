@@ -292,8 +292,9 @@ async def handle_accept_terms(callback: types.CallbackQuery, bot: Bot, state: FS
         parse_mode="HTML",
     )
 
-    await callback.message.answer_photo(photo=START_PAY_PHOTO_FILE_ID)
-
+    await callback.message.answer_photo(
+        photo="AgACAgIAAxkBAAIYvGi4GTUIIlEjk9HaeZK5VmgiBscYAAKe_DEb_ZnBSf2a3fsZw7plAQADAgADeQADNgQ"
+    )
     try:
         await callback.answer("✅ Принято", show_alert=False)
     except Exception:
