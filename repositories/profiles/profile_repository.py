@@ -92,3 +92,23 @@ async def set_terms_accepted(user_id: int):
         WHERE user_id = :user_id
     """
     await database.execute(query=query, values={"user_id": user_id})
+
+
+# --- NEW: идемпотентная фиксация оплаты и создание пользователя при необходимости ---
+async def ensure_paid_user(user_id: int, name: str | None = None) -> None:
+    """
+    Создаёт пользователя (если его ещё нет) и активирует подписку:
+      - is_paid = TRUE
+      - payment_date = NOW()
+    Если пользователь уже есть — обновляет is_paid и payment_date.
+    """
+    query = """
+    INSERT INTO users (user_id, name, is_paid, payment_date, created_at)
+    VALUES (:user_id, :name, TRUE, NOW(), NOW())
+    ON CONFLICT (user_id) DO UPDATE
+    SET is_paid = TRUE,
+        payment_date = NOW(),
+        name = COALESCE(users.name, EXCLUDED.name)
+    """
+    await database.execute(query, {"user_id": user_id, "name": name or "—"})
+
