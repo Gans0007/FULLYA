@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import pytz
 from db.db import database
 
-TZ = pytz.timezone("Europe/Kyiv")
+KYIV_TZ = pytz.timezone("Europe/Kyiv")
 
 async def _collect_items(user_id: int, is_challenge: bool):
     # Активные привычки/челленджи (включая wake_time)
